@@ -31,7 +31,6 @@ export const registerUser = async (req, res, next) => {
 
     res.status(201).json(user);
   } catch (error) {
-    console.error(error);
     next(error);
   }
 };
@@ -57,7 +56,47 @@ export const loginUser = async (req, res, next) => {
 
     res.status(200).json(user);
   } catch (error) {
-    console.error(error);
+    next(error);
+  }
+};
+
+export const logoutUser = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.cookies;
+
+    if (refreshToken) {
+      await Session.deleteOne({ refreshToken });
+    }
+
+    res.clearCookie("accessToken");
+    res.clearCookie("refreshToken");
+
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const refreshUserSession = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.cookies;
+
+    if (!refreshToken) {
+      throw createHttpError(401, "Missing refresh token");
+    }
+
+    const oldSession = await Session.findOne({ refreshToken });
+    if (!oldSession) {
+      throw createHttpError(401, "Invalid refresh token");
+    }
+
+    await Session.deleteOne({ _id: oldSession._id });
+
+    const newSession = await createSession(oldSession.userId);
+    setSessionCookies(res, newSession);
+
+    res.status(200).json({ message: "Session refreshed" });
+  } catch (error) {
     next(error);
   }
 };
@@ -97,8 +136,7 @@ export const requestResetEmail = async (req, res, next) => {
     res
       .status(200)
       .json({ message: "Password reset email sent successfully" });
-  } catch (error) {
-    console.error(error);
+  } catch {
     next(
       createHttpError(
         500,
@@ -119,7 +157,11 @@ export const resetPassword = async (req, res, next) => {
       throw createHttpError(401, "Invalid or expired token");
     }
 
-    const user = await User.findOne({ _id: payload.sub, email: payload.email });
+    const user = await User.findOne({
+      _id: payload.sub,
+      email: payload.email,
+    });
+
     if (!user) {
       throw createHttpError(404, "User not found");
     }
@@ -129,7 +171,6 @@ export const resetPassword = async (req, res, next) => {
 
     res.status(200).json({ message: "Password reset successfully" });
   } catch (error) {
-    console.error(error);
     next(error);
   }
 };

@@ -10,10 +10,9 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-export const sendEmail = ({ to, subject, html }) =>
-  transporter.sendMail({
+export const sendEmail = (options) => {
+  return transporter.sendMail({
     from: process.env.SMTP_FROM,
-    to,
-    subject,
-    html,
+    ...options,
   });
+};
